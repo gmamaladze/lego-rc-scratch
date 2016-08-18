@@ -23,7 +23,7 @@
     };
 
     ext.read_command = function () {
-        return {channel:'channel 1', output:'blue', command:'forward'};
+        return 'channel 1';
     };
 
 
@@ -33,7 +33,7 @@
             // Block type, block name, function name
             ['w', 'forward on %m.channel output %m.output for %n secs', 'full_forward_for', 'channel 1', 'red', 1],
             ['h', 'when command received', 'when_comand_received'],
-            ['r', 'read command', 'read_command']
+            ['r', 'channel', 'read_channel']
         ],
         menus: {
             channel: ['channel 1', 'channel 2', 'channel 3', 'channel 4'],
