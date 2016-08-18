@@ -22,10 +22,13 @@
         return false;
     };
 
-    ext.read_command = function () {
+    ext.read_channel = function () {
         return 'channel 1';
     };
 
+  ext.read_command_buffer = function () {
+        return [1,2,3,4,5];
+    };
 
     // Block and block menu descriptions
     var descriptor = {
@@ -33,7 +36,8 @@
             // Block type, block name, function name
             ['w', 'forward on %m.channel output %m.output for %n secs', 'full_forward_for', 'channel 1', 'red', 1],
             ['h', 'when command received', 'when_comand_received'],
-            ['r', 'channel', 'read_channel']
+            ['r', 'channel', 'read_channel'],
+            ['r', 'buffer', 'read_command_buffer']
         ],
         menus: {
             channel: ['channel 1', 'channel 2', 'channel 3', 'channel 4'],
