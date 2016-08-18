@@ -1,25 +1,36 @@
-(function(ext) {
+(function (ext) {
     // Cleanup function when the extension is unloaded
-    ext._shutdown = function() {};
+    ext._shutdown = function () { };
 
     // Status reporting code
     // Use this to report missing hardware, plugin or unsupported browser
-    ext._getStatus = function() {
-        return {status: 2, msg: 'Ready'};
+    ext._getStatus = function () {
+        return { status: 2, msg: 'Ready' };
     };
 
-    ext.my_first_block = function() {
-        // Code that gets executed when the block is run
+    // Functions for block with type 'w' will get a callback function as the 
+    // final argument. This should be called to indicate that the block can
+    // stop waiting.
+    ext.full_forward_for = function(channel, output, seconds, callback) {
+        console.log('Forward on ' + channel + ' output ' + output + ' for ' + seconds + ' seconds');
+        window.setTimeout(function() {
+            callback();
+        }, seconds*1000);
     };
 
     // Block and block menu descriptions
     var descriptor = {
         blocks: [
             // Block type, block name, function name
-            [' ', 'my first block', 'my_first_block'],
-        ]
+            ['w', 'forward on %m.channel output %m.output for %n secs', 'full_forward_for', 'channel 1', 'red', 1],
+        ],
+        menus: {
+            channel: ['channel 1', 'channel 2', 'channel 3', 'channel 4'],
+            output: ['red', 'blue']
+        },
+        url: 'https://gmamaladze.github.io/lego-rc-scratch/'
     };
 
     // Register the extension
-    ScratchExtensions.register('My first extension', descriptor, ext);
+    ScratchExtensions.register('Lego Power Functions RC', descriptor, ext);
 })({});
