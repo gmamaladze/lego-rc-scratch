@@ -1,45 +1,81 @@
-function Message(channel, output, data, mode) {
-    this.channel = channel;
-    this.toggle = 0; //Even0
-    this.escape = 0; //UseMode0
-    this.data = data;
-    this.output = output;
-    this.mode = mode //direct|inc-dec
-    this.address = 0; //reserved
+Output = {
+    Red : 0,
+    Blue : 1
+}
 
-    this.getData = function () {
-        var nibble1 = this.getNiblle1();
-        var nibble2 = this.getNiblle2();
-        var nibble3 = this.getNiblle3();
-        var lrc = this.calculateLrc(nibble1, nibble2, nibble3);
-        var data = (nibble1 << 12) | (nibble2 << 8) | (nibble3 << 4) | lrc;
-        return data;
-    }
+Channel = {
+    Ch1: 0,
+    Ch2: 1,
+    Ch3: 2,
+    Ch4: 3
+}
 
-    this.getNiblle1 = function () {
-        return (this.toggle << 3) | (this.escape << 2) | this.channel;
-    }
+Mode = {
+    Pwm: 0,
+    IncDec: 1
+}
 
-    this.getNiblle2 = function () {
-        return this.address << 3 | 1 << 2 | this.mode << 1 | this.output;
-    }
+IncDec = {
+    ToggleFullForward: 0,
+    ToggleDirection: 1,
+    IncrementNumericalPwm: 2,
+    DecrementNumericalPwm: 3,
+    IncrementPwm: 4,
+    DecrementPwm: 5,
+    FullForward: 6,
+    FullBackward: 7,
+    ToggleFullForwardBackward: 8,
+    ClearC1: 9,
+    SetC1: 10,
+    ToggleC1: 11,
+    ClearC2: 12,
+    SetC2: 13,
+    ToggleC2: 14,
+    ToggleF: 15
+}
 
-    this.getNiblle3 = function () {
-        return this.data;
-    }
+PwmSpeed = {
+    Float: 0,
+    ForwardStep1: 1,
+    ForwardStep2: 2,
+    ForwardStep3: 3,
+    ForwardStep4: 4,
+    ForwardStep5: 5,
+    ForwardStep6: 6,
+    ForwardStep7: 7,
+    BreakThenFloat: 8,
+    BackwardStep7: 9,
+    BackwardStep6: 10,
+    BackwardStep5: 11,
+    BackwardStep4: 12,
+    BackwardStep3: 13,
+    BackwardStep2: 14,
+    BackwardStep1: 15
+}
 
-    this.calculateLrc = function (nibble1, nibble2, nibble3) {
-        //Longitudinal Redundancy Check
-        return 0xf ^ nibble1 ^ nibble2 ^ nibble3;
+//TODO Comments
+function Message(channel, output, mode, value) {
+    var toggle = 0; //Even0
+    var escape = 0; //UseMode0
+    var address = 0; //reserved
+
+    var nibble1 = (toggle << 3) | (escape << 2) | channel;
+    var nibble2 = address << 3 | 1 << 2 | mode << 1 | output;
+    var nibble3 = value;
+    var lrc = 0xf ^ nibble1 ^ nibble2 ^ nibble3;
+
+    this.data = (nibble1 << 12) | (nibble2 << 8) | (nibble3 << 4) | lrc;
+
+    this.getBytes = function () {
+        return toBytes(toPulses(this.data));
     }
 
     this.toString = function () {
         var result = "";
-        var data = this.getData();
         result += '|';
-        for (nibbleNr = 0; nibbleNr < 4; nibbleNr++) {
-            for (bitNr = 0; bitNr < 4; bitNr++) {
-                var bit = ((data << (nibbleNr * 4 + bitNr)) & 0x8000) != 0;
+        for (var nibbleNr = 0; nibbleNr < 4; nibbleNr++) {
+            for (var bitNr = 0; bitNr < 4; bitNr++) {
+                var bit = ((this.data << (nibbleNr * 4 + bitNr)) & 0x8000) != 0;
                 var ch = bit ? '1' : '0';
                 result += ch;
             }
@@ -47,58 +83,44 @@ function Message(channel, output, data, mode) {
         }
         return result;
     }
-}
 
-function encode_to_pulses(data) {
-    var MaxEncodedMessageSize = 522;
-    var HighIrPulseCount = 6;
-    var LowIrPulseCountFor0 = 10;
-    var LowIrPulseCountFor1 = 21;
-    var LowIrPulseCountForStartStop = 39;
+    function toPulses(data) {
 
-    var buffer = new ushort[MaxEncodedMessageSize];
-    var currentDataMask = 0x8000;
-    var currentPulse = 0;
-    currentPulse = FillStartStop(buffer, currentPulse);
+        var sync = new Array(45).fill(1, 0, 6).fill(0, 6, 6 + 39);
+        var bit0 = new Array(16).fill(1, 0, 6).fill(0, 6, 6 + 10);
+        var bit1 = new Array(27).fill(1, 0, 6).fill(0, 6, 6 + 21);
 
-    while (currentDataMask != 0) {
-        var currentDataBit = (data & currentDataMask) == 0;
-        currentPulse = FillBit(currentDataBit, currentPulse, buffer);
-        currentDataMask >>= 1;
-    }
-    //stop bit
-    var finalPulseCount = Fill(buffer, currentPulse, HighIrPulseCount, 39);
-    var result = Trim(buffer, finalPulseCount);
-    return result;
+        var pulses = [].concat(sync);
 
-    function FillBit(currentDataBit, currentPulse, buffer) {
-        var lowPulseCount = currentDataBit ? LowIrPulseCountFor0 : LowIrPulseCountFor1;
-        currentPulse = Fill(buffer, currentPulse, HighIrPulseCount, lowPulseCount);
-        return currentPulse;
+        var mask = 0x8000;
+        while (mask != 0) {
+            var current = (data & mask) === 0 ? bit0 : bit1;
+            pulses = pulses.concat(current);
+            mask >>= 1;
+        }
+        return pulses.concat(sync);
     }
 
-    function FillStartStop(buffer, startIndex) {
-        return Fill(buffer, startIndex, HighIrPulseCount, LowIrPulseCountForStartStop);
-    }
+    function toBytes(pulses) {
 
-    function Trim(buffer, finalLength) {
-        var result = new ushort[finalLength];
-        Array.Copy(buffer, result, finalLength);
-        return result;
-    }
-
-    function Fill(buffer, startIndex, pulseCount, irPulse) {
-        for (var i = startIndex; i < startIndex + pulseCount; i++) { buffer[i] = irPulse; }
-        return i;
-    }
-
-    function Fill(buffer, startIndex, highPulseCount, lowPulseCount) {
-        var currentIndex = startIndex;
-        currentIndex = Fill(buffer, currentIndex, highPulseCount, IrPulse.High);
-        currentIndex = Fill(buffer, currentIndex, lowPulseCount, IrPulse.Low);
-        return currentIndex;
+        var buffer = [];
+        buffer.length = Math.ceil(pulses.length / 8);
+        for (var i = 0; i < buffer.length; i++) {
+            var current = 0;
+            for (var j = 0; j < 8; j++) {
+                var index = i * 8 + j;
+                if (index >= pulses.length) break;
+                current = current << 1;
+                var bit = pulses[index];
+                current = current | bit;
+            }
+            buffer[i] = current;
+        }
+        return buffer;
     }
 }
+
+
 
 
 (function (ext) {
